@@ -1,0 +1,11 @@
+/* -*- tab-width: 4; c-basic-offset: 2; indent-tabs-mode: nil; mode: java -*- */
+
+using System;
+using System.Reflection;
+
+//HACK: these look like SubWCRev ternary expressions, but
+// I didn't implement ternary replacement in the nant
+// script for svnversion.
+[assembly: AssemblyVersion("0.0.$WCREV$.$WCMIXED?1:0$$WCMODS?1:0$")]
+[assembly: AssemblyCopyright("Copyright (C) 2009 Sean M. Foy")]
+[assembly: CLSCompliant(true)]
