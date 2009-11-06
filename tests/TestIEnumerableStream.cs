@@ -60,7 +60,6 @@ namespace seanfoy.mvcutils {
             using (var ies = new IEnumerableStream(monotonic(), System.Text.Encoding.UTF8)) {
                 Byte [] buff = new Byte[1];
                 int byteCount;
-                var sb = new StringBuilder();
                 for (int i = 0; i < 3; ++i) {
                     byteCount = ies.Read(buff, 0, buff.Length);
                     Assert.IsFalse(d.Contains(buff[0]), "A stream with no repeated bytes should not yield duplicate values");

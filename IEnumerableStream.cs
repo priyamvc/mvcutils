@@ -7,7 +7,7 @@ namespace seanfoy.mvcutils {
     /// <summary>
     /// Adapt arbitrary <c>IEnumerable</c>s
     /// to the Stream interface.
-    /// <summary>
+    /// </summary>
     public class IEnumerableStream : Stream {
         public IEnumerator src { get; set; }
         public Encoding enc { get; set; }
