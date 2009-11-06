@@ -1,0 +1,124 @@
+<?xml version="1.0" ?><!-- -*- mode:nxml; indent-tabs-mode: nil -*- -->
+<project name="apply-version" default="apply-version">
+  <property name="skip-version-application-p" value="false" overwrite="false" />
+
+  <target name="lastResort">
+    <echo message="giving up on assembly versioning" />
+    <copy file="AssemblyInfo.cs.tmpl" tofile="AssemblyInfo.cs" overwrite="true">
+      <filterchain>
+        <replacetokens begintoken="$" endtoken="$">
+          <token key="WCREV" value="0" />
+          <token key="WCMIXED?1:0" value="1" />
+          <token key="WCMODS?1:0" value="1" />
+        </replacetokens>
+      </filterchain>
+    </copy>
+  </target>
+
+  <target name="trySubWCRev">
+    <exec program="SubWCRev" failonerror="false" resultproperty="subwcrevExitStatus">
+      <arg line=". AssemblyInfo.cs.tmpl AssemblyInfo.cs" />
+    </exec>
+    <if test="${subwcrevExitStatus == '-1000'}">
+      <call target="lastResort" />
+    </if>
+  </target>
+
+  <target name="try-svnversion">
+    <exec program="svnversion" failonerror="false" resultproperty="svnversionExitStatus" output="AssemblyInfo.cs.svnversion">
+    </exec>
+    <if test="${svnversionExitStatus == '0'}">
+      <loadfile file="AssemblyInfo.cs.svnversion" property="svnversionResult" />
+      <property name="svnversionResult" value="${string::trim(string::to-lower(svnversionResult))}" />
+      <property name="svnversion-m" value="${string::contains(svnversionResult, 'm')}" />
+      <property name="svnversionResult" value="${string::replace(svnversionResult, 'm', '')}" />
+      <property name="svnversion-s" value="${string::contains(svnversionResult, 's')}" />
+      <property name="svnversionResult" value="${string::replace(svnversionResult, 's', '')}" />
+      <property name="svnversion-p" value="${string::contains(svnversionResult, 'p')}" />
+      <property name="svnversionResult" value="${string::replace(svnversionResult, 'p', '')}" />
+      <property name="svnversion-delim" value="${string::index-of(svnversionResult, ':')}" />
+      <if test="${svnversion-delim == '-1'}">
+        <property name="wcrev" value="${svnversionResult}" />
+      </if>
+      <if test="${svnversion-delim != '-1'}">
+        <property
+            name="wcrev"
+            value="${
+                   string::substring(
+                     svnversionResult,
+                     0,
+                     svnversion-delim)}" />
+      </if>
+      <property name="wcmixed" value="${svnversion-delim != '-1'}" />
+      <property name="wcmods" value="${svnversion-m}" />
+      <call target="do-apply-version" />
+    </if>
+    <if test="${svnversionExitStatus != '0'}">
+      <call target="trySubWCRev" />
+    </if>
+  </target>
+
+  <target name="do-apply-version">
+    <copy file="AssemblyInfo.cs.tmpl" tofile="AssemblyInfo.cs" overwrite="true">
+      <filterchain>
+        <replacetokens begintoken="$" endtoken="$">
+          <token key="WCREV" value="${wcrev}" />
+          <token key="WCMIXED?1:0" value="0" if="${not wcmixed}" />
+          <token key="WCMIXED?1:0" value="1" if="${wcmixed}" />
+          <token key="WCMODS?1:0" value="0" if="${not wcmods}" />
+          <token key="WCMODS?1:0" value="1" if="${wcmods}" />
+        </replacetokens>
+      </filterchain>
+    </copy>
+  </target>
+
+  <target name="try-hg">
+    <exec program="hg" failonerror="false" resultproperty="hgwc">
+      <arg line="root" />
+    </exec>
+    <if test="${hgwc != '0'}">
+      <call target="lastresort" />
+    </if>
+    <if test="${hgwc == '0'}">
+      <exec program="hg" failonerror="true" output="AssemblyInfo.cs.hgid">
+        <arg line="--debug id --num --id" />
+      </exec>
+      <loadfile file="AssemblyInfo.cs.hgid" property="hgid" />
+      <regex input="${hgid}" pattern="(?'revid'[0-9a-f]+)(?'hgdirty'\+?)\s+(?'revnum'[0-9a-f]+)" />
+      <echo message="revid: ${revid}" />
+      <echo message="revnum: ${revnum}" />
+      <echo message="hgdirty: ${hgdirty}" />
+      <exec program="hg" failonerror="true" output="AssemblyInfo.cs.hgpaths">
+        <arg line="paths" />
+      </exec>
+      <property name="upstream" value="" />
+      <if test="${file::exists('AssemblyInfo.cs.hgpaths')}">
+        <loadfile file="AssemblyInfo.cs.hgpaths" property="hgpaths" />
+        <regex input="${hgpaths}" pattern="^default\s+=\s+(?'upstream'.+)" failonerror="false" />
+      </if>
+      <exec program="hg" failonerror="false" output="AssemblyInfo.cs.hgurevnum" resultproperty="hginconsistent">
+        <arg line="id --rev ${revid} ${upstream}" />
+      </exec>
+      <loadfile file="AssemblyInfo.cs.hgurevnum" property="hgurevnum" />
+      <echo message="hgurevnum: ${hgurevnum}" />
+      <property name="wcrev" value="${revnum}" />
+      <!-- there's no exact analog to svn mixed rev wcs in
+           hg, but I guess maybe having a wc state that isn't
+           accessible at the upstream repo is comparable. -->
+      <property name="wcmixed" value="${hginconsistent != '0'}" />
+      <property name="wcmods" value="${hgdirty == '+'}" />
+      <call target="do-apply-version" />
+    </if>
+  </target>
+
+  <target name="apply-version">
+    <if test="${not skip-version-application-p}">
+      <if test="${directory::exists('.svn')}">
+        <call target="try-svnversion" />
+      </if>
+      <if test="${not directory::exists('.svn')}">
+        <call target="try-hg" />
+      </if>
+    </if>
+  </target>
+</project>

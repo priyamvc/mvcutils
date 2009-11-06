@@ -1,0 +1,200 @@
+<?xml version="1.0" encoding="utf-8"?><!-- -*- mode: nxml; indent-tabs-mode: nil -*- -->
+<project name="seanfoy.mvcutils" default="test">
+  <property name="build.dir" value="build" overwrite="false" />
+  <property name="docs.dir" value="docs" overwrite="false" />
+  <property name="debug" value="true" overwrite="false" />
+  <property name="package.dir" value="package" overwrite="false" />
+  <!-- set compilation symbols consistent with Mono and
+       NAnt conventions. See http://www.mono-project.com/Coding_Guidelines#Conditional_compilation
+       and NAnt.build -->
+  <property name="compilation.symbols"
+            value="${
+                   'NET_' +
+                     string::replace(
+                       version::to-string(
+                         framework::get-version(
+                           framework::get-target-framework())),
+                       '.', '_')}" overwrite="false" />
+
+  <target name="clean">
+    <delete file="AssemblyInfo.cs" />
+    <delete dir="${build.dir}" if="${directory::exists(build.dir)}" />
+    <delete dir="${docs.dir}" if="${directory::exists(docs.dir)}" />
+  </target>
+
+  <target name="apply-version">
+    <nant buildfile="apply-version.nant" target="apply-version">
+    </nant>
+  </target>
+
+  <target name="configure" description="change config settings according to the user-config-postfix property value">
+    <echo message="user-config-postfix: ${user-config-postfix}" />
+    <foreach item="File" property="filename">
+      <in>
+        <items>
+          <include name="**/*.config.${user-config-postfix}" />
+        </items>
+      </in>
+      <do>
+        <copy file="${filename}" tofile="${path::combine(path::get-directory-name(filename), path::get-file-name-without-extension(filename))}" overwrite="false" />
+        <touch file="${path::combine(path::get-directory-name(filename), 'web.config')}" if="${file::exists(path::combine(path::get-directory-name(filename), 'web.config'))}" />
+      </do>
+    </foreach>
+    <call target="configure-build-dir" />
+  </target>
+  <target name="clean-config">
+    <foreach item="File" property="filename">
+      <in>
+        <items>
+          <include name="**/*.config.${user-config-postfix}" />
+        </items>
+      </in>
+      <do>
+        <delete file="${path::combine(path::get-directory-name(filename), path::get-file-name-without-extension(filename))}" failonerror="false" />
+      </do>
+    </foreach>
+  </target>
+  <target name="reconfigure" description="remove old config files and configure according to user-config-postfix" depends="clean-config configure"></target>
+  <target name="configure-build-dir">
+    <foreach item="String" property="i" in="aspnet-declarative aspnet-imperative aspnet-l4n soap" delim=" ">
+      <do>
+        <mkdir dir="${build.dir}/demos/${i}/bin" />
+        <copy todir="${build.dir}/demos/${i}">
+          <fileset basedir="demos/aspnet-common">
+            <include name="**/*.config" />
+            <include name="**/*.config.*" />
+          </fileset>
+        </copy>
+        <copy todir="${build.dir}/demos/${i}">
+          <fileset basedir="demos/${i}">
+            <include name="**/*.config" />
+            <include name="**/*.config.*" />
+          </fileset>
+        </copy>
+        <copy todir="${build.dir}/demos">
+          <fileset basedir="demos">
+            <include name="*.webapp" />
+          </fileset>
+        </copy>
+      </do>
+    </foreach>
+    <copy todir="${build.dir}">
+      <fileset basedir="tests">
+        <include name="*.config" />
+      </fileset>
+    </copy>
+  </target>
+
+  <target name="build-lib" depends="apply-version">
+    <echo message="Build directory is ${build.dir}" />
+    <mkdir dir="${build.dir}" />
+    <copy todir="${build.dir}" flatten="true">
+      <fileset>
+        <include name="lib/*.dll" />
+        <include name="lib/*.DLL" />
+      </fileset>
+    </copy>
+    <csc target="library" output="${build.dir}/${project::get-name()}.dll" debug="${debug}" doc="${build.dir}/${project::get-name()}.xml" define="${compilation.symbols}">
+      <references>
+        <include name="System.Core.dll" />
+        <include name="System.Configuration.dll" />
+        <include name="System.Web.dll" />        
+        <include name="System.Web.Abstractions.dll" />
+        <include name="System.Web.Routing.dll" />
+        <include name="System.Web.Mvc.dll" />
+      </references>
+      <sources>
+        <include name="*.cs" />
+      </sources>
+    </csc>
+  </target>
+
+  <target name="build-tests" depends="build-lib">
+    <copy todir="${build.dir}">
+      <fileset basedir="tests">
+        <include name="*.config" />
+      </fileset>
+    </copy>
+    <csc target="library" output="${build.dir}/${project::get-name()}Tests.dll" debug="${debug}" doc="${build.dir}/${project::get-name()}Tests.xml" define="${compilation.symbols}">
+      <references>
+        <include name="System.Configuration.dll" />
+        <include name="lib/nunit.framework.dll" />
+        <include name="System.Web.Abstractions.dll" />
+        <include name="System.Web.Routing.dll" />
+        <include name="System.Web.Mvc.dll" />
+        <include name="lib/Moq.dll" />
+        <include name="build/${project::get-name()}.dll" />
+      </references>
+      <sources>
+        <include name="tests/*.cs" />
+      </sources>
+    </csc>
+  </target>
+
+  <target name="build" depends="build-lib build-tests">
+  </target>
+
+  <target name="test" depends="build-tests">
+    <nunit2>
+      <formatter type="Plain" />
+      <test>
+        <assemblies>
+          <include name="${build.dir}/*Tests.dll" />
+        </assemblies>
+      </test>
+    </nunit2>
+  </target>
+
+  <target name="doc" depends="build">
+    <mkdir dir="${path::combine(docs.dir, 'monodoc')}" />
+    <mkdir dir="${path::combine(docs.dir, 'html')}" />
+    <foreach item="File" property="i">
+      <in>
+        <items>
+          <include name="${build.dir}/**/*.dll" />
+        </items>
+      </in>
+      <do>
+        <exec program="monodocer">
+          <arg line="-pretty -importslashdoc:&quot;${path::change-extension(i, '.xml')}&quot; -assembly:&quot;${i}&quot; -path:&quot;${path::combine(docs.dir, 'monodoc')}&quot;" />
+        </exec>
+      </do>
+    </foreach>
+    <exec program="monodocs2html">
+      <arg line="--out=&quot;${path::combine(docs.dir, 'html')}&quot; &quot;${path::combine(docs.dir, 'monodoc')}&quot;" />
+    </exec>
+    <!-- monodocs2html - -source docfiles - -dest htmldocs -->
+  </target>
+
+  <target name="package">
+    <delete dir="${package.dir}" />
+    <mkdir dir="${package.dir}" />
+    <property name="clrlist" value="" />
+    <foreach item="String" property="i" in="mono-3.5 net-3.5" delim=" ">
+      <do>
+        <if test="${framework::exists(i)}">
+          <!-- if we start in mono-3.5 then set nant.settings.currentframework=mono-1.0, we apparently encounter some assembly loading problems that prevent us from loading System.Configuration.ConfigurationSettings. So, spawn separate nant processes. -->
+          <exec program="nant">
+              <arg line="-targetframework:${i} clean test doc" />
+          </exec>
+          <copy todir="${path::combine(package.dir, i)}">
+            <fileset basedir="build">
+              <include name="**/*" />
+            </fileset>
+          </copy>
+          <copy todir="${path::combine(package.dir, i)}">
+            <fileset>
+              <include name="${docs.dir}/**/*" />
+            </fileset>
+          </copy>
+          <property name="clrlist" value="${clrlist + ' ' + version::to-string(framework::get-clr-version(i))}" />
+        </if>
+      </do>
+    </foreach>
+    <tar destfile="${project::get-name()}.tar.bz2" compression="BZip2">
+      <fileset basedir="${package.dir}" prefix="${project::get-name()}">
+        <include name="**/*" />
+      </fileset>
+    </tar>
+  </target>
+</project>
