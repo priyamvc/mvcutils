@@ -155,8 +155,8 @@
         </items>
       </in>
       <do>
-        <exec program="monodocer">
-          <arg line="-pretty -importslashdoc:&quot;${path::change-extension(i, '.xml')}&quot; -assembly:&quot;${i}&quot; -path:&quot;${path::combine(docs.dir, 'monodoc')}&quot;" />
+        <exec program="monodocer" if="${file::exists(path::change-extension(i, '.xml'))}">
+          <arg line="-pretty --lib=&quot;lib&quot; -importslashdoc:&quot;${path::change-extension(i, '.xml')}&quot; -assembly:&quot;${i}&quot; -path:&quot;${path::combine(docs.dir, 'monodoc')}&quot;" />
         </exec>
       </do>
     </foreach>
