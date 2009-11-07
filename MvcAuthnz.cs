@@ -23,8 +23,15 @@ namespace seanfoy.mvcutils {
                 Context.User != null &&
                 Context.User.Identity.IsAuthenticated) return;
             Context.User =
-                authenticateRequest(Request.Cookies[cookieName]) ??
+                authenticateRequest(Request.Cookies[cookieName], DateTime.Now, getClientIP()) ??
                 Context.User;
+        }
+
+        public String getClientIP() {
+            if (transferrable) {
+                return "any";
+            }
+            return Request.ServerVariables["REMOTE_ADDR"];
         }
 
         public void deauthenticateRequest() {
@@ -43,8 +50,8 @@ namespace seanfoy.mvcutils {
             return String.Format("role{0}", i);
         }
 
-        public IPrincipal authenticateRequest(HttpCookie cookie) {
-            if (!ValidP(cookie)) {
+        public IPrincipal authenticateRequest(HttpCookie cookie, DateTime now, String clientIP) {
+            if (!ValidP(cookie, now, clientIP)) {
                 return null;
             }
             var roles = new List<String>();
@@ -63,15 +70,21 @@ namespace seanfoy.mvcutils {
                 p.Identity != null &&
                 cookieName.Equals(p.Identity.AuthenticationType);
         }
-        public Boolean ValidP(HttpCookie cookie) {
+        public Boolean ValidP(HttpCookie cookie, DateTime now, String clientIP) {
             if (Object.ReferenceEquals(cookie, null)) return false;
+
+            if (cookie.Values["client-ip"] != clientIP) return false;
+            var expiry = parseDT(cookie.Values["expiry"]);
+            if (Object.ReferenceEquals(expiry, null)) return false;
+            if (expiry.Value < now) return false;
+
             var check =
                 GenerateCookie(
                     cookie.Values["username"],
                     Enumerable.Select(
                         Enumerable.Range(0, rolesInCookie(cookie)),
                         i => cookie.Values[keyForRole(i)]).ToArray(),
-                    DateTime.Parse(cookie.Values["expiry"]),
+                    expiry.Value,
                     cookie.Values["client-ip"]);
             return cookie.Values.ToString().Equals(check.Values.ToString());
         }
@@ -103,10 +116,16 @@ namespace seanfoy.mvcutils {
                 }
             }
         }
+        private DateTime? parseDT(String dt) {
+            DateTime result;
+            if (!DateTime.TryParse(dt, out result)) return null;
+            return result;
+        }
 
         public String cookieName;
         public Byte [] signingKey;
         public Boolean recessive;
+        public Boolean transferrable;
         public CookieAuthenticationHttpModule() : this(null) {}
         public CookieAuthenticationHttpModule(NameValueCollection config) {
             Configure(config);
@@ -141,13 +160,18 @@ namespace seanfoy.mvcutils {
                 }
                 signingKey = sharedKey;
             }
-            recessive =
-                config[configKey("recessive")] == null ?
-                false :
-                Boolean.Parse(config[configKey("recessive")]);
+            recessive = boolFromConfigKey(config, configKey("recessive"), false);
+            transferrable = boolFromConfigKey(config, configKey("transferrable"), false);
         }
         public String configKey(String setting) {
             return String.Format("{0}.{1}", GetType().FullName, setting);
+        }
+        private Boolean boolFromConfigKey(NameValueCollection config, String key, Boolean defaultValue) {
+            String v = config[key];
+            return
+                v == null ?
+                defaultValue :
+                Boolean.Parse(v);
         }
         private static Object syncroot = new Object();
         /// <summary>

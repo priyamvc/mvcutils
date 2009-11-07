@@ -135,22 +135,49 @@ namespace seanfoy.mvcutils {
         [Test]
         public void validCookieExists() {
             var authn = new CookieAuthenticationHttpModule();
-            var tastey = authn.GenerateCookie("sean", new [] {"teacher", "student"}, DateTime.Now.AddHours(3), "209.144.4.100");
-            Assert.IsTrue(authn.ValidP(tastey));
+            var now = DateTime.Now;
+            var expiry = now.AddHours(3);
+            var clientIP = "209.144.4.100";
+            var tastey = authn.GenerateCookie("sean", new [] {"teacher", "student"}, expiry, clientIP);
+            Assert.IsTrue(authn.ValidP(tastey, now, clientIP));
+        }
+
+        [Test]
+        public void cookiesExpire() {
+            var authn = new CookieAuthenticationHttpModule();
+            var now = DateTime.Now;
+            var expiry = now.AddHours(-1);
+            var clientIP = "209.144.4.100";
+            var tastey = authn.GenerateCookie("sean", new [] {"teacher", "student"}, expiry, clientIP);
+            Assert.IsFalse(authn.ValidP(tastey, now, clientIP));
+        }
+
+        [Test]
+        public void nonTransferrableCookies() {
+            var authn = new CookieAuthenticationHttpModule();
+            var now = DateTime.Now;
+            var expiry = now.AddHours(3);
+            var clientIP = "209.144.4.100";
+            var transferree = "18.12.133.7";
+            var tastey = authn.GenerateCookie("sean", new [] {"teacher", "student"}, expiry, clientIP);
+            Assert.IsFalse(authn.ValidP(tastey, now, transferree));
         }
 
         [Test]
         public void tamperResistentCookies() {
             //sanity
             var authn = new CookieAuthenticationHttpModule();
-            var tastey = authn.GenerateCookie("sean", new [] {"teacher", "student"}, DateTime.Now.AddHours(3), "209.144.4.100");
-            Assert.IsTrue(authn.ValidP(tastey));
+            var now = DateTime.Now;
+            var expiry = now.AddHours(3);
+            var clientIP = "209.144.4.100";
+            var tastey = authn.GenerateCookie("sean", new [] {"teacher", "student"}, expiry, clientIP);
+            Assert.IsTrue(authn.ValidP(tastey, now, clientIP));
 
             //surgical tampering
             int insertionPosition = int.Parse(tastey.Values["role-count"]);
             tastey.Values["role-count"] = (insertionPosition + 1).ToString();
             tastey.Values[CookieAuthenticationHttpModule.keyForRole(insertionPosition)] = "bogus";
-            Assert.IsFalse(authn.ValidP(tastey));
+            Assert.IsFalse(authn.ValidP(tastey, now, clientIP));
 
             //wholesale naughtiness; this portion of the test
             // is more likely to survive implementation changes
@@ -160,8 +187,8 @@ namespace seanfoy.mvcutils {
                     new [] {
                         new {name = "sean", role = "serf"},
                         new {name = "sohail", role="plebeian"}},
-                    nr => authn.GenerateCookie(nr.name, new [] {nr.role}, DateTime.Now.AddHours(3), "209.144.4.100")).ToList();
-            Assert.IsTrue(Enumerable.All(samples, s => authn.ValidP(s)));
+                    nr => authn.GenerateCookie(nr.name, new [] {nr.role}, expiry, clientIP)).ToList();
+            Assert.IsTrue(Enumerable.All(samples, s => authn.ValidP(s, now, clientIP)));
             foreach (var i in Enumerable.Range(0, samples.Count)) {
                 if (i % 2 == 1) continue;
                 var tradingPartner = (i + 1) % samples.Count;
@@ -169,7 +196,7 @@ namespace seanfoy.mvcutils {
                 samples[tradingPartner].Values["sig"] = samples[i].Values["sig"];
                 samples[i].Values["sig"] = t;
             }
-            Assert.IsTrue(Enumerable.All(samples, s => !authn.ValidP(s)));
+            Assert.IsTrue(Enumerable.All(samples, s => !authn.ValidP(s, now, clientIP)));
         }
 
         [Test]
@@ -185,15 +212,18 @@ namespace seanfoy.mvcutils {
                     roles,
                     r => principal.IsInRole(r)));
             var authn = new CookieAuthenticationHttpModule();
+            var now = DateTime.Now;
+            var expiry = now.AddHours(3);
+            var clientIP = "209.144.4.100";
             var tastey =
                 authn.GenerateCookie(
                     principal.Identity.Name,
                     roles,
-                    DateTime.Now.AddHours(3),
-                    "209.144.4.100");
+                    expiry,
+                    clientIP);
 
             var authorized =
-                authn.authenticateRequest(tastey);
+                authn.authenticateRequest(tastey, now, clientIP);
             Assert.AreEqual(principal.Identity.Name, authorized.Identity.Name);
             Assert.IsTrue(
                 Enumerable.All(
