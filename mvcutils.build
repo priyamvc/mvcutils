@@ -169,6 +169,18 @@
   <target name="package">
     <delete dir="${package.dir}" />
     <mkdir dir="${package.dir}" />
+    <copy todir="${package.dir}">
+      <fileset>
+        <include name="LICENSE.txt" />
+        <include name="gpl.txt" />
+      </fileset>
+    </copy>
+    <mkdir dir="${package.dir}/sources" />
+    <copy todir="${package.dir}/sources">
+      <fileset>
+        <include name="**/*.cs" />
+      </fileset>
+    </copy>
     <property name="clrlist" value="" />
     <foreach item="String" property="i" in="mono-3.5 net-3.5" delim=" ">
       <do>
