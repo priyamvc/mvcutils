@@ -11,7 +11,7 @@ using System.Web.Routing;
 namespace seanfoy.mvcutils {
     public static class MvcUtils {
         /// <see cref="addMvcRoute" />
-        /// <see cref="Potpourri.MvcMangle" />
+        /// <see cref="MvcMangle" />
         public static string [] aliases = new string [] {".mvc", ".aspx"};
 
         /// <remarks>
@@ -205,7 +205,7 @@ namespace seanfoy.mvcutils {
         /// <summary>
         /// Translate from a string in the
         /// <see href="http://www.w3.org/TR/html5/syntax.html#syntax-text">CDATA repertoire</see> to a string in the <see href="http://www.w3.org/TR/html4/types.html#h-6.2">ID and NAME token repertoire</see>.
-        /// <summary>
+        /// </summary>
         /// <remarks>
         /// Note that the <c>name</c> attribute of form controls has type
         /// <c>CDATA</c>, not <c>NAME</c>. So, it is not necessary to use
@@ -230,7 +230,7 @@ namespace seanfoy.mvcutils {
         /// <remarks>
         /// The namesake method from
         /// <see cref="System.Security.Principal.IPrincipal" />
-        /// is implemented in <see cref="System.WindowsPrincipal" />
+        /// is implemented in <see cref="System.Security.Principal.WindowsPrincipal" />
         /// to throw/propagate exceptions when the role does not
         /// have the form domain\group or group@domain. This behavior
         /// is not documented and the exception types are not
@@ -280,14 +280,14 @@ namespace seanfoy.mvcutils {
         /// <remarks>
         /// Although a DateTime format string could be used with
         /// <see cref="DateTime.Parse" /> and
-        /// <see cref="DateTime.ToString" />, this pattern is
+        /// <see cref="DateTime.ToString(String)" />, this pattern is
         /// useful for routing constraints.
         /// <seealso href="http://isotc.iso.org/livelink/livelink/4021199/ISO_8601_2004_E.zip?func=doc.Fetch&amp;nodeid=4021199" />
         /// </remarks>
         public static Regex ISO8601_Basic_DateTime =
             new Regex(@"(?<YYYY>\d{4})(?<MM>\d{2})(?<DD>\d{2})T(?<hh>\d\d)(?<mm>\d\d)(?<ss>\d\d)(?<zonedesignator>Z|([+-]\d\d(?:\d\d)?))?");
         /// <summary>
-        /// Use this pattern with <see cref="DateTime.ToString" /> to
+        /// Use this pattern with <see cref="DateTime.ToString(String)" /> to
         /// construct URLs.
         /// </summary>
         private static String ISO8601_Basic_DateTimeFormat = "yyyyMMddTHHmmssK";
@@ -358,7 +358,7 @@ namespace seanfoy.mvcutils {
     /// <summary>
     /// A response including an entity representing an arbitrary
     /// and potentially infinite stream of data.
-    /// <summary>
+    /// </summary>
     /// </remarks>
     /// Microsoft's implementation fails to <c>Flush</c> and so
     /// sometimes delivers incomplete responses to clients.
