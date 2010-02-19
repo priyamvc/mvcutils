@@ -148,6 +148,8 @@
   <target name="doc" depends="build">
     <mkdir dir="${path::combine(docs.dir, 'monodoc')}" />
     <mkdir dir="${path::combine(docs.dir, 'html')}" />
+    <property name="doc.xml_list" value="" />
+    <property name="doc.asm_list" value="" />
     <foreach item="File" property="i">
       <in>
         <items>
@@ -155,11 +157,16 @@
         </items>
       </in>
       <do>
-        <exec program="monodocer" if="${file::exists(path::change-extension(i, '.xml'))}">
-          <arg line="-pretty --lib=&quot;lib&quot; -importslashdoc:&quot;${path::change-extension(i, '.xml')}&quot; -assembly:&quot;${i}&quot; -path:&quot;${path::combine(docs.dir, 'monodoc')}&quot;" />
-        </exec>
+        <if test="${file::exists(path::change-extension(i, '.xml'))}">
+          <property name="doc.xml_list" value="${doc.xml_list} -importslashdoc:&quot;${path::change-extension(i, '.xml')}&quot;" />
+          <property name="doc.asm_list" value="${doc.asm_list} -assembly:&quot;${i}&quot;" />
+        </if>
       </do>
     </foreach>
+    <echo message="-pretty --lib=&quot;lib&quot; ${doc.xml_list} ${doc.asm_list} -path:&quot;${path::combine(docs.dir, 'monodoc')}&quot;" />
+    <exec program="monodocer" if="${string::get-length(doc.xml_list) > 0}">
+      <arg line="-pretty --lib=&quot;lib&quot; ${doc.xml_list} ${doc.asm_list} -path:&quot;${path::combine(docs.dir, 'monodoc')}&quot;" />
+    </exec>
     <exec program="monodocs2html">
       <arg line="--out=&quot;${path::combine(docs.dir, 'html')}&quot; &quot;${path::combine(docs.dir, 'monodoc')}&quot;" />
     </exec>
