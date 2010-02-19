@@ -55,13 +55,13 @@ namespace seanfoy.mvcutils {
             if (count < 0) {
                 throw new ArgumentOutOfRangeException("count", "must be non-negative");
             }
-            int lastOffset = offset;
-            while (offset - lastOffset < count) {
+            int sumBytesRead = 0;
+            while (sumBytesRead < count) {
                 long ibavail = internalBuffer.Length - internalBuffer.Position;
                 if (ibavail > 0) {
-                    int flow = (int)Math.Min(ibavail, count);
-                    flow = internalBuffer.Read(buffer, offset, flow);
-                    offset += flow;
+                    int flow = (int)Math.Min(ibavail, count - sumBytesRead);
+                    flow = internalBuffer.Read(buffer, offset + sumBytesRead, flow);
+                    sumBytesRead += flow;
                     if (flow == ibavail) {
                         internalBuffer.SetLength(0);
                     }
@@ -81,9 +81,8 @@ namespace seanfoy.mvcutils {
                     byteCount);
                 internalBuffer.Seek(0, SeekOrigin.Begin);
             }
-            int bytesRead = offset - lastOffset;
-            positionField += bytesRead;
-            return bytesRead;
+            positionField += sumBytesRead;
+            return sumBytesRead;
         }
 
         public override void Write(byte [] b, int i, int j) {

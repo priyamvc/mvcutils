@@ -92,9 +92,7 @@ namespace seanfoy.mvcutils {
             yield return "q";
         }
 
-        [Test]
-        public void wchar() {
-            Byte [] buff = new Byte[1];
+        private void testMixedChars(Byte [] buff) {
             Assert.IsTrue(
                 Enumerable.Any(
                     Enumerable.OfType<string>(mixedLengthChars()),
@@ -116,6 +114,23 @@ namespace seanfoy.mvcutils {
                 } while (byteCount > 0);
             }
             Assert.AreEqual(expected.ToString(), actual.ToString());
+        }
+
+        [Test]
+        public void wchar() {
+            // show that we can handle encoded characters that
+            // span Read invocations.
+            testMixedChars(new Byte[1]);
+        }
+
+        [Test]
+        public void cumulativeOverrun() {
+            // show that we don't overrun the client-supplied
+            // buffer when a stream element's encoding spans
+            // Read invocations *and* the end of the encoding
+            // of the preceding element is being made
+            // available to the client in this invocation.
+            testMixedChars(new Byte[2]);
         }
     }
 }
